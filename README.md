@@ -10,7 +10,7 @@ To maintain organization and clarity, we'll structure the repository as follows:
 
 - Each participant will have a dedicated folder named after their username (e.g., `/johnDoe`).
 - Inside your folder, create a subfolder for each day of the challenge (e.g., `/johnDoe/Day01`).
-- Each day's folder should contain two subfolders: `Challenge1` and `Challenge2`, for the respective daily challenges.
+- Each day's folder should contain two subfolders: `Part1` and `Part2`, for the respective daily challenges.
 - Feel free to use any programming language. Include a `.gitignore` file in your main folder to avoid committing unnecessary files.
 
 ```
