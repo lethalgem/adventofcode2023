@@ -1,4 +1,3 @@
-use fancy_regex::Regex;
 use std::{fs, io, num};
 use thiserror::Error;
 
@@ -244,8 +243,6 @@ fn convert_string_to_int(string: String) -> Result<i32, Part1Error> {
 
 #[cfg(test)]
 mod tests {
-    use fancy_regex::Regex;
-
     use crate::{extract_all_numbers, extract_number_from_line, load_input};
 
     #[test]
