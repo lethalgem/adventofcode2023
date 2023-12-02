@@ -45,170 +45,53 @@ fn extract_all_numbers(input: String) -> Result<Vec<i32>, Part1Error> {
 }
 
 fn extract_number_from_line(line: String) -> Result<i32, Part1Error> {
-    let mut numbers_found: Vec<String> = Vec::new();
+    let number_words = [
+        "one", "two", "three", "four", "five", "six", "seven", "eight", "nine",
+    ];
+
+    let mut numbers_found = Vec::new();
     let line_vec: Vec<char> = line.chars().collect();
-    for (starting_location, char) in line_vec.iter().enumerate() {
+
+    // Iterate over each character in the string
+    for (index, char) in line_vec.iter().enumerate() {
+        // check for digit
         if char.is_ascii_digit() {
-            numbers_found.push(char.to_string())
-        } else {
-            let mut look_at_location = starting_location;
+            numbers_found.push(char.to_string());
+        }
 
-            match char {
-                'o' => {
-                    look_at_location += 1;
-
-                    if look_at_location < line_vec.len() && line_vec[look_at_location] == 'n' {
-                        look_at_location += 1;
-
-                        if look_at_location < line_vec.len() && line_vec[look_at_location] == 'e' {
-                            numbers_found.push("1".to_owned());
-                        }
-                    }
-                }
-                't' => {
-                    look_at_location += 1;
-
-                    if look_at_location < line_vec.len() && line_vec[look_at_location] == 'h' {
-                        look_at_location += 1;
-
-                        if look_at_location < line_vec.len() && line_vec[look_at_location] == 'r' {
-                            look_at_location += 1;
-
-                            if look_at_location < line_vec.len()
-                                && line_vec[look_at_location] == 'e'
-                            {
-                                look_at_location += 1;
-
-                                if look_at_location < line_vec.len()
-                                    && line_vec[look_at_location] == 'e'
-                                {
-                                    numbers_found.push("3".to_owned());
-                                }
-                            }
-                        }
-                    } else if look_at_location < line_vec.len() && line_vec[look_at_location] == 'w'
-                    {
-                        look_at_location += 1;
-
-                        if look_at_location < line_vec.len() && line_vec[look_at_location] == 'o' {
-                            numbers_found.push("2".to_owned());
-                        }
-                    }
-                }
-                'f' => {
-                    look_at_location += 1;
-
-                    if look_at_location < line_vec.len() && line_vec[look_at_location] == 'o' {
-                        look_at_location += 1;
-
-                        if look_at_location < line_vec.len() && line_vec[look_at_location] == 'u' {
-                            look_at_location += 1;
-
-                            if look_at_location < line_vec.len()
-                                && line_vec[look_at_location] == 'r'
-                            {
-                                numbers_found.push("4".to_owned());
-                            }
-                        }
-                    } else if look_at_location < line_vec.len() && line_vec[look_at_location] == 'i'
-                    {
-                        look_at_location += 1;
-
-                        if look_at_location < line_vec.len() && line_vec[look_at_location] == 'v' {
-                            look_at_location += 1;
-
-                            if look_at_location < line_vec.len()
-                                && line_vec[look_at_location] == 'e'
-                            {
-                                numbers_found.push("5".to_owned());
-                            }
-                        }
-                    }
-                }
-                's' => {
-                    look_at_location += 1;
-
-                    if look_at_location < line_vec.len() && line_vec[look_at_location] == 'i' {
-                        look_at_location += 1;
-
-                        if look_at_location < line_vec.len() && line_vec[look_at_location] == 'x' {
-                            numbers_found.push("6".to_owned());
-                        }
-                    } else if look_at_location < line_vec.len() && line_vec[look_at_location] == 'e'
-                    {
-                        look_at_location += 1;
-
-                        if look_at_location < line_vec.len() && line_vec[look_at_location] == 'v' {
-                            look_at_location += 1;
-
-                            if look_at_location < line_vec.len()
-                                && line_vec[look_at_location] == 'e'
-                            {
-                                look_at_location += 1;
-
-                                if look_at_location < line_vec.len()
-                                    && line_vec[look_at_location] == 'n'
-                                {
-                                    numbers_found.push("7".to_owned());
-                                }
-                            }
-                        }
-                    }
-                }
-                'e' => {
-                    look_at_location += 1;
-
-                    if look_at_location < line_vec.len() && line_vec[look_at_location] == 'i' {
-                        look_at_location += 1;
-
-                        if look_at_location < line_vec.len() && line_vec[look_at_location] == 'g' {
-                            look_at_location += 1;
-
-                            if look_at_location < line_vec.len()
-                                && line_vec[look_at_location] == 'h'
-                            {
-                                look_at_location += 1;
-
-                                if look_at_location < line_vec.len()
-                                    && line_vec[look_at_location] == 't'
-                                {
-                                    numbers_found.push("8".to_owned());
-                                }
-                            }
-                        }
-                    }
-                }
-                'n' => {
-                    look_at_location += 1;
-
-                    if look_at_location < line_vec.len() && line_vec[look_at_location] == 'i' {
-                        look_at_location += 1;
-
-                        if look_at_location < line_vec.len() && line_vec[look_at_location] == 'n' {
-                            look_at_location += 1;
-
-                            if look_at_location < line_vec.len()
-                                && line_vec[look_at_location] == 'e'
-                            {
-                                numbers_found.push("9".to_owned());
-                            }
-                        }
-                    }
-                }
-                _ => {}
+        // Check if any number word starts at this index
+        for &num_word in &number_words {
+            if line[index..].starts_with(num_word) {
+                numbers_found.push(num_word.to_string());
+                break; // Break to avoid matching smaller numbers within larger ones
             }
         }
     }
 
-    let first_num = numbers_found
-        .first()
-        .ok_or_else(|| Part1Error::NoFirstNum)?;
-    let last_num = numbers_found.last().ok_or_else(|| Part1Error::NoLastNum)?;
+    let first_num = convert_string_to_number(numbers_found.first().ok_or(Part1Error::NoFirstNum)?);
+    let last_num = convert_string_to_number(numbers_found.last().ok_or(Part1Error::NoLastNum)?);
 
     let composed_num = format!("{}{}", first_num, last_num)
         .parse::<i32>()
         .map_err(Part1Error::ParseIntFailed)?;
+
     Ok(composed_num)
+}
+
+fn convert_string_to_number(s: &String) -> String {
+    match s.as_str() {
+        "one" => "1",
+        "two" => "2",
+        "three" => "3",
+        "four" => "4",
+        "five" => "5",
+        "six" => "6",
+        "seven" => "7",
+        "eight" => "8",
+        "nine" => "9",
+        _ => s,
+    }
+    .to_string()
 }
 
 #[cfg(test)]
