@@ -1,4 +1,4 @@
-use regex::Regex;
+use fancy_regex::Regex;
 use std::{fs, io, num};
 use thiserror::Error;
 
@@ -46,12 +46,174 @@ fn extract_all_numbers(input: String) -> Result<Vec<i32>, Part1Error> {
 }
 
 fn extract_number_from_line(line: String) -> Result<i32, Part1Error> {
-    let regex =
-        Regex::new(r"one|two|three|four|five|six|seven|eight|nine|1|2|3|4|5|6|7|8|9").unwrap();
+    let mut numbers_found: Vec<String> = Vec::new();
+    let line_vec: Vec<char> = line.chars().collect();
+    for (starting_location, char) in line_vec.iter().enumerate() {
+        if char.is_ascii_digit() {
+            numbers_found.push(char.to_string())
+        } else {
+            let mut look_at_location = starting_location;
 
-    let numbers: Vec<&str> = regex.find_iter(&line).map(|m| m.as_str()).collect();
-    let first_num = numbers.first().ok_or_else(|| Part1Error::NoFirstNum)?;
-    let last_num = numbers.last().ok_or_else(|| Part1Error::NoLastNum)?;
+            match char {
+                'o' => {
+                    look_at_location += 1;
+
+                    if look_at_location < line_vec.len() && line_vec[look_at_location] == 'n' {
+                        look_at_location += 1;
+
+                        if look_at_location < line_vec.len() && line_vec[look_at_location] == 'e' {
+                            println!("found: one");
+                            numbers_found.push("one".to_owned());
+                        }
+                    }
+                }
+                't' => {
+                    look_at_location += 1;
+
+                    if look_at_location < line_vec.len() && line_vec[look_at_location] == 'h' {
+                        look_at_location += 1;
+
+                        if look_at_location < line_vec.len() && line_vec[look_at_location] == 'r' {
+                            look_at_location += 1;
+
+                            if look_at_location < line_vec.len()
+                                && line_vec[look_at_location] == 'e'
+                            {
+                                look_at_location += 1;
+
+                                if look_at_location < line_vec.len()
+                                    && line_vec[look_at_location] == 'e'
+                                {
+                                    println!("found: three");
+                                    numbers_found.push("three".to_owned());
+                                }
+                            }
+                        }
+                    } else if look_at_location < line_vec.len() && line_vec[look_at_location] == 'w'
+                    {
+                        look_at_location += 1;
+
+                        if look_at_location < line_vec.len() && line_vec[look_at_location] == 'o' {
+                            println!("found: two");
+                            numbers_found.push("two".to_owned());
+                        }
+                    }
+                }
+                'f' => {
+                    look_at_location += 1;
+
+                    if look_at_location < line_vec.len() && line_vec[look_at_location] == 'o' {
+                        look_at_location += 1;
+
+                        if look_at_location < line_vec.len() && line_vec[look_at_location] == 'u' {
+                            look_at_location += 1;
+
+                            if look_at_location < line_vec.len()
+                                && line_vec[look_at_location] == 'r'
+                            {
+                                println!("found: four");
+                                numbers_found.push("four".to_owned());
+                            }
+                        }
+                    } else if look_at_location < line_vec.len() && line_vec[look_at_location] == 'i'
+                    {
+                        look_at_location += 1;
+
+                        if look_at_location < line_vec.len() && line_vec[look_at_location] == 'v' {
+                            look_at_location += 1;
+
+                            if look_at_location < line_vec.len()
+                                && line_vec[look_at_location] == 'e'
+                            {
+                                println!("found: five");
+                                numbers_found.push("five".to_owned());
+                            }
+                        }
+                    }
+                }
+                's' => {
+                    look_at_location += 1;
+
+                    if look_at_location < line_vec.len() && line_vec[look_at_location] == 'i' {
+                        look_at_location += 1;
+
+                        if look_at_location < line_vec.len() && line_vec[look_at_location] == 'x' {
+                            println!("found: six");
+                            numbers_found.push("six".to_owned());
+                        }
+                    } else if look_at_location < line_vec.len() && line_vec[look_at_location] == 'e'
+                    {
+                        look_at_location += 1;
+
+                        if look_at_location < line_vec.len() && line_vec[look_at_location] == 'v' {
+                            look_at_location += 1;
+
+                            if look_at_location < line_vec.len()
+                                && line_vec[look_at_location] == 'e'
+                            {
+                                look_at_location += 1;
+
+                                if look_at_location < line_vec.len()
+                                    && line_vec[look_at_location] == 'n'
+                                {
+                                    println!("found: seven");
+                                    numbers_found.push("seven".to_owned());
+                                }
+                            }
+                        }
+                    }
+                }
+                'e' => {
+                    look_at_location += 1;
+
+                    if look_at_location < line_vec.len() && line_vec[look_at_location] == 'i' {
+                        look_at_location += 1;
+
+                        if look_at_location < line_vec.len() && line_vec[look_at_location] == 'g' {
+                            look_at_location += 1;
+
+                            if look_at_location < line_vec.len()
+                                && line_vec[look_at_location] == 'h'
+                            {
+                                look_at_location += 1;
+
+                                if look_at_location < line_vec.len()
+                                    && line_vec[look_at_location] == 't'
+                                {
+                                    println!("found: eight");
+                                    numbers_found.push("eight".to_owned());
+                                }
+                            }
+                        }
+                    }
+                }
+                'n' => {
+                    look_at_location += 1;
+
+                    if look_at_location < line_vec.len() && line_vec[look_at_location] == 'i' {
+                        look_at_location += 1;
+
+                        if look_at_location < line_vec.len() && line_vec[look_at_location] == 'n' {
+                            look_at_location += 1;
+
+                            if look_at_location < line_vec.len()
+                                && line_vec[look_at_location] == 'e'
+                            {
+                                println!("found: nine");
+                                numbers_found.push("nine".to_owned());
+                            }
+                        }
+                    }
+                }
+                _ => {}
+            }
+        }
+    }
+
+    let first_num = numbers_found
+        .first()
+        .ok_or_else(|| Part1Error::NoFirstNum)?;
+    let last_num = numbers_found.last().ok_or_else(|| Part1Error::NoLastNum)?;
 
     let converted_first_digit = convert_string_to_int(first_num.to_string())?;
     let converted_second_digit = convert_string_to_int(last_num.to_string())?;
@@ -60,6 +222,20 @@ fn extract_number_from_line(line: String) -> Result<i32, Part1Error> {
         .parse::<i32>()
         .map_err(Part1Error::ParseIntFailed)?;
     Ok(composed_num)
+
+    // Ok(23)
+
+    // let numbers: Vec<&str> = regex.find_iter(&line).map(|m| m.as_str()).collect();
+    // let first_num = numbers.first().ok_or_else(|| Part1Error::NoFirstNum)?;
+    // let last_num = numbers.last().ok_or_else(|| Part1Error::NoLastNum)?;
+
+    // let converted_first_digit = convert_string_to_int(first_num.to_string())?;
+    // let converted_second_digit = convert_string_to_int(last_num.to_string())?;
+
+    // let composed_num = format!("{}{}", converted_first_digit, converted_second_digit)
+    //     .parse::<i32>()
+    //     .map_err(Part1Error::ParseIntFailed)?;
+    // Ok(composed_num)
 }
 
 fn convert_string_to_int(string: String) -> Result<i32, Part1Error> {
@@ -82,19 +258,85 @@ fn convert_string_to_int(string: String) -> Result<i32, Part1Error> {
 
 #[cfg(test)]
 mod tests {
-    use regex::Regex;
+    use fancy_regex::Regex;
 
     use crate::{extract_all_numbers, extract_number_from_line, load_input};
 
     #[test]
-    fn regex_line() {
-        // TODO: Create manual parser. Regex in rust doesn't support look ahead. So when parsing eighthree it only finds eight, and not three
-        let re =
-            Regex::new(r"(?=(one|two|three|four|five|six|seven|eight|nine|1|2|3|4|5|6|7|8|9))")
-                .unwrap();
+    fn manual_parsing_one() {
+        let hay = "1one";
+        let result = extract_number_from_line(hay.to_owned()).unwrap();
+        assert_eq!(result, 11)
+    }
+
+    #[test]
+    fn manual_parsing_two() {
+        let hay = "2two";
+        let result = extract_number_from_line(hay.to_owned()).unwrap();
+        assert_eq!(result, 22)
+    }
+
+    #[test]
+    fn manual_parsing_three() {
+        let hay = "3three";
+        let result = extract_number_from_line(hay.to_owned()).unwrap();
+        assert_eq!(result, 33)
+    }
+
+    #[test]
+    fn manual_parsing_four() {
+        let hay = "4four";
+        let result = extract_number_from_line(hay.to_owned()).unwrap();
+        assert_eq!(result, 44)
+    }
+
+    #[test]
+    fn manual_parsing_five() {
+        let hay = "5five";
+        let result = extract_number_from_line(hay.to_owned()).unwrap();
+        assert_eq!(result, 55)
+    }
+
+    #[test]
+    fn manual_parsing_six() {
+        let hay = "6six";
+        let result = extract_number_from_line(hay.to_owned()).unwrap();
+        assert_eq!(result, 66)
+    }
+
+    #[test]
+    fn manual_parsing_seven() {
+        let hay = "7seven";
+        let result = extract_number_from_line(hay.to_owned()).unwrap();
+        assert_eq!(result, 77)
+    }
+
+    #[test]
+    fn manual_parsing_eight() {
+        let hay = "8eight";
+        let result = extract_number_from_line(hay.to_owned()).unwrap();
+        assert_eq!(result, 88)
+    }
+
+    #[test]
+    fn manual_parsing_nine() {
+        let hay = "9nine";
+        let result = extract_number_from_line(hay.to_owned()).unwrap();
+        assert_eq!(result, 99)
+    }
+
+    #[test]
+    fn manual_parsing_all_numbers() {
+        let hay = "123456789onetwothreefourfivesixseveneightnine";
+        let result = extract_number_from_line(hay.to_owned()).unwrap();
+        assert_eq!(result, 19)
+    }
+
+    #[test]
+    fn manual_parsing_overlap() {
         let hay = "eighthree";
-        let numbers: Vec<&str> = re.find_iter(hay).map(|m| m.as_str()).collect();
-        assert_eq!(numbers, vec!["two", "1", "nine"]);
+        let result = extract_number_from_line(hay.to_owned()).unwrap();
+        assert_eq!(result, 83)
     }
 
     #[test]
