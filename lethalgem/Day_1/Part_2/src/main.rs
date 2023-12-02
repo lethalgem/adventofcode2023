@@ -222,20 +222,6 @@ fn extract_number_from_line(line: String) -> Result<i32, Part1Error> {
         .parse::<i32>()
         .map_err(Part1Error::ParseIntFailed)?;
     Ok(composed_num)
-
-    // Ok(23)
-
-    // let numbers: Vec<&str> = regex.find_iter(&line).map(|m| m.as_str()).collect();
-    // let first_num = numbers.first().ok_or_else(|| Part1Error::NoFirstNum)?;
-    // let last_num = numbers.last().ok_or_else(|| Part1Error::NoLastNum)?;
-
-    // let converted_first_digit = convert_string_to_int(first_num.to_string())?;
-    // let converted_second_digit = convert_string_to_int(last_num.to_string())?;
-
-    // let composed_num = format!("{}{}", converted_first_digit, converted_second_digit)
-    //     .parse::<i32>()
-    //     .map_err(Part1Error::ParseIntFailed)?;
-    // Ok(composed_num)
 }
 
 fn convert_string_to_int(string: String) -> Result<i32, Part1Error> {
