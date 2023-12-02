@@ -61,8 +61,7 @@ fn extract_number_from_line(line: String) -> Result<i32, Part1Error> {
                         look_at_location += 1;
 
                         if look_at_location < line_vec.len() && line_vec[look_at_location] == 'e' {
-                            println!("found: one");
-                            numbers_found.push("one".to_owned());
+                            numbers_found.push("1".to_owned());
                         }
                     }
                 }
@@ -83,8 +82,7 @@ fn extract_number_from_line(line: String) -> Result<i32, Part1Error> {
                                 if look_at_location < line_vec.len()
                                     && line_vec[look_at_location] == 'e'
                                 {
-                                    println!("found: three");
-                                    numbers_found.push("three".to_owned());
+                                    numbers_found.push("3".to_owned());
                                 }
                             }
                         }
@@ -93,8 +91,7 @@ fn extract_number_from_line(line: String) -> Result<i32, Part1Error> {
                         look_at_location += 1;
 
                         if look_at_location < line_vec.len() && line_vec[look_at_location] == 'o' {
-                            println!("found: two");
-                            numbers_found.push("two".to_owned());
+                            numbers_found.push("2".to_owned());
                         }
                     }
                 }
@@ -110,8 +107,7 @@ fn extract_number_from_line(line: String) -> Result<i32, Part1Error> {
                             if look_at_location < line_vec.len()
                                 && line_vec[look_at_location] == 'r'
                             {
-                                println!("found: four");
-                                numbers_found.push("four".to_owned());
+                                numbers_found.push("4".to_owned());
                             }
                         }
                     } else if look_at_location < line_vec.len() && line_vec[look_at_location] == 'i'
@@ -124,8 +120,7 @@ fn extract_number_from_line(line: String) -> Result<i32, Part1Error> {
                             if look_at_location < line_vec.len()
                                 && line_vec[look_at_location] == 'e'
                             {
-                                println!("found: five");
-                                numbers_found.push("five".to_owned());
+                                numbers_found.push("5".to_owned());
                             }
                         }
                     }
@@ -137,8 +132,7 @@ fn extract_number_from_line(line: String) -> Result<i32, Part1Error> {
                         look_at_location += 1;
 
                         if look_at_location < line_vec.len() && line_vec[look_at_location] == 'x' {
-                            println!("found: six");
-                            numbers_found.push("six".to_owned());
+                            numbers_found.push("6".to_owned());
                         }
                     } else if look_at_location < line_vec.len() && line_vec[look_at_location] == 'e'
                     {
@@ -155,8 +149,7 @@ fn extract_number_from_line(line: String) -> Result<i32, Part1Error> {
                                 if look_at_location < line_vec.len()
                                     && line_vec[look_at_location] == 'n'
                                 {
-                                    println!("found: seven");
-                                    numbers_found.push("seven".to_owned());
+                                    numbers_found.push("7".to_owned());
                                 }
                             }
                         }
@@ -179,8 +172,7 @@ fn extract_number_from_line(line: String) -> Result<i32, Part1Error> {
                                 if look_at_location < line_vec.len()
                                     && line_vec[look_at_location] == 't'
                                 {
-                                    println!("found: eight");
-                                    numbers_found.push("eight".to_owned());
+                                    numbers_found.push("8".to_owned());
                                 }
                             }
                         }
@@ -198,8 +190,7 @@ fn extract_number_from_line(line: String) -> Result<i32, Part1Error> {
                             if look_at_location < line_vec.len()
                                 && line_vec[look_at_location] == 'e'
                             {
-                                println!("found: nine");
-                                numbers_found.push("nine".to_owned());
+                                numbers_found.push("9".to_owned());
                             }
                         }
                     }
@@ -214,31 +205,10 @@ fn extract_number_from_line(line: String) -> Result<i32, Part1Error> {
         .ok_or_else(|| Part1Error::NoFirstNum)?;
     let last_num = numbers_found.last().ok_or_else(|| Part1Error::NoLastNum)?;
 
-    let converted_first_digit = convert_string_to_int(first_num.to_string())?;
-    let converted_second_digit = convert_string_to_int(last_num.to_string())?;
-
-    let composed_num = format!("{}{}", converted_first_digit, converted_second_digit)
+    let composed_num = format!("{}{}", first_num, last_num)
         .parse::<i32>()
         .map_err(Part1Error::ParseIntFailed)?;
     Ok(composed_num)
-}
-
-fn convert_string_to_int(string: String) -> Result<i32, Part1Error> {
-    match string.parse::<i32>() {
-        Ok(int) => Ok(int),
-        Err(_) => match string.as_str() {
-            "one" => Ok(1),
-            "two" => Ok(2),
-            "three" => Ok(3),
-            "four" => Ok(4),
-            "five" => Ok(5),
-            "six" => Ok(6),
-            "seven" => Ok(7),
-            "eight" => Ok(8),
-            "nine" => Ok(9),
-            _ => Err(Part1Error::ParseIntFromWordFailed(string)),
-        },
-    }
 }
 
 #[cfg(test)]
