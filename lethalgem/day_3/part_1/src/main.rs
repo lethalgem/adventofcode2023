@@ -14,17 +14,6 @@ pub enum Day3Error {
     NoColonFound,
 }
 
-/*
-Todo:
-1. split into lines
-2. go through char by char
-3. find each digit
-4. on digit find, check adjacent for a symbol -- set flag if true
-5. combine horizontally adjacent digits into number
-4. keep a list of numbers
-5. sum all numbers that have symbol
- */
-
 #[derive(PartialEq, Debug, Clone)]
 struct SchematicSymbol {
     line: usize,
