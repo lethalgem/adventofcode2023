@@ -73,7 +73,9 @@ fn main() {
 fn run() -> Result<(), Day3Error> {
     let input_data = load_input("src/input.txt".to_string())?;
     let (schematic_numbers, schematic_symbols) = scan_schematic(input_data.to_owned())?;
-    let part_numbers = determine_part_numbers(schematic_numbers, schematic_symbols);
+    let part_numbers = determine_part_numbers(schematic_numbers, schematic_symbols)?;
+    let sum = sum_part_numbers(part_numbers);
+    println!("sum of part numbers: {}", sum);
     Ok(())
 }
 
@@ -81,6 +83,10 @@ fn load_input(file_path: String) -> Result<String, Day3Error> {
     let data = fs::read_to_string(file_path).map_err(Day3Error::UnableToLoadFile)?;
     println!("Successfully loaded file");
     Ok(data)
+}
+
+fn sum_part_numbers(part_numbers: Vec<SchematicNumber>) -> i32 {
+    part_numbers.iter().map(|part| part.value).sum()
 }
 
 fn determine_part_numbers(
@@ -215,8 +221,9 @@ fn construct_schematic_number(
 #[cfg(test)]
 mod tests {
     use crate::{
-        determine_part_numbers, is_adjacent_to_symbol, scan_for_numbers_in_line,
-        scan_for_symbols_in_line, scan_schematic, SchematicNumber, SchematicSymbol, Span,
+        determine_part_numbers, is_adjacent_to_symbol, load_input, scan_for_numbers_in_line,
+        scan_for_symbols_in_line, scan_schematic, sum_part_numbers, SchematicNumber,
+        SchematicSymbol, Span,
     };
 
     #[test]
@@ -378,5 +385,14 @@ mod tests {
                 }
             ]
         )
+    }
+
+    #[test]
+    fn sum_part_numbers_in_full_schematic() {
+        let input = load_input("src/example_1.txt".to_string()).unwrap();
+        let (schematic_numbers, schematic_symbols) = scan_schematic(input.to_owned()).unwrap();
+        let part_numbers = determine_part_numbers(schematic_numbers, schematic_symbols).unwrap();
+        let result = sum_part_numbers(part_numbers);
+        assert_eq!(result, 4361)
     }
 }
