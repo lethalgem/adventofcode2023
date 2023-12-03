@@ -1,4 +1,5 @@
-use std::{collections::btree_map::Range, fs, io, num::ParseIntError};
+use cond_utils::Between;
+use std::{fs, io, num::ParseIntError};
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -24,7 +25,7 @@ Todo:
 5. sum all numbers that have symbol
  */
 
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Debug, Clone)]
 struct SchematicSymbol {
     line: usize,
     index: usize,
@@ -35,17 +36,11 @@ struct SchematicNumber {
     value: i32,
     line: usize,
     span: Span,
-    is_part_number: Option<bool>,
 }
 
 impl SchematicNumber {
     fn new_with_values(value: i32, line: usize, span: Span) -> SchematicNumber {
-        SchematicNumber {
-            value,
-            line,
-            span,
-            is_part_number: None,
-        }
+        SchematicNumber { value, line, span }
     }
 }
 
@@ -77,7 +72,8 @@ fn main() {
 
 fn run() -> Result<(), Day3Error> {
     let input_data = load_input("src/input.txt".to_string())?;
-
+    let (schematic_numbers, schematic_symbols) = scan_schematic(input_data.to_owned())?;
+    let part_numbers = determine_part_numbers(schematic_numbers, schematic_symbols);
     Ok(())
 }
 
@@ -85,6 +81,50 @@ fn load_input(file_path: String) -> Result<String, Day3Error> {
     let data = fs::read_to_string(file_path).map_err(Day3Error::UnableToLoadFile)?;
     println!("Successfully loaded file");
     Ok(data)
+}
+
+fn determine_part_numbers(
+    schematic_numbers: Vec<SchematicNumber>,
+    schematic_symbols: Vec<SchematicSymbol>,
+) -> Result<Vec<SchematicNumber>, Day3Error> {
+    let mut part_numbers: Vec<SchematicNumber> = Vec::new();
+
+    for number in schematic_numbers {
+        if is_adjacent_to_symbol(&number, schematic_symbols.clone()) {
+            part_numbers.push(number);
+        }
+    }
+
+    Ok(part_numbers)
+}
+
+fn is_adjacent_to_symbol(
+    schematic_number: &SchematicNumber,
+    schematic_symbols: Vec<SchematicSymbol>,
+) -> bool {
+    for symbol in schematic_symbols {
+        let positive_previous_line_number = match schematic_number.line {
+            0 => 0,
+            number => number - 1,
+        };
+
+        let positive_span_start = match schematic_number.span.start {
+            0 => 0,
+            number => number - 1,
+        };
+
+        if symbol
+            .line
+            .within(positive_previous_line_number, schematic_number.line + 1)
+            && symbol
+                .index
+                .within(positive_span_start, schematic_number.span.end + 1)
+        {
+            return true;
+        }
+    }
+
+    false
 }
 
 fn scan_schematic(
@@ -96,17 +136,13 @@ fn scan_schematic(
     for (line_number, line) in full_schematic.lines().enumerate() {
         scan_for_numbers_in_line(line.to_owned(), line_number)
             .map(|mut found_numbers| schematic_numbers.append(&mut found_numbers))?;
-        scan_for_symbols_in_line(line.to_owned(), line_number)
-            .map(|mut found_symbols| schematic_symbols.append(&mut found_symbols))?;
+        schematic_symbols.append(&mut scan_for_symbols_in_line(line.to_owned(), line_number));
     }
 
     Ok((schematic_numbers, schematic_symbols))
 }
 
-fn scan_for_symbols_in_line(
-    schematic_line: String,
-    line_number: usize,
-) -> Result<Vec<SchematicSymbol>, Day3Error> {
+fn scan_for_symbols_in_line(schematic_line: String, line_number: usize) -> Vec<SchematicSymbol> {
     let mut schematic_symbols: Vec<SchematicSymbol> = Vec::new();
 
     let chars_in_line = schematic_line.chars();
@@ -119,7 +155,7 @@ fn scan_for_symbols_in_line(
         }
     }
 
-    Ok(schematic_symbols)
+    schematic_symbols
 }
 
 fn scan_for_numbers_in_line(
@@ -179,8 +215,8 @@ fn construct_schematic_number(
 #[cfg(test)]
 mod tests {
     use crate::{
-        scan_for_numbers_in_line, scan_for_symbols_in_line, scan_schematic, SchematicNumber,
-        SchematicSymbol, Span,
+        determine_part_numbers, is_adjacent_to_symbol, scan_for_numbers_in_line,
+        scan_for_symbols_in_line, scan_schematic, SchematicNumber, SchematicSymbol, Span,
     };
 
     #[test]
@@ -214,14 +250,14 @@ mod tests {
     #[test]
     fn find_symbol_in_line() {
         let input = "467...*...";
-        let result = scan_for_symbols_in_line(input.to_owned(), 1).unwrap();
+        let result = scan_for_symbols_in_line(input.to_owned(), 1);
         assert_eq!(result, vec![SchematicSymbol { line: 1, index: 6 }])
     }
 
     #[test]
     fn find_symbols_in_line() {
         let input = "467.3..*.@";
-        let result = scan_for_symbols_in_line(input.to_owned(), 1).unwrap();
+        let result = scan_for_symbols_in_line(input.to_owned(), 1);
         assert_eq!(
             result,
             vec![
@@ -247,6 +283,100 @@ mod tests {
                     SchematicSymbol { line: 0, index: 8 }
                 ]
             )
+        )
+    }
+
+    #[test]
+    fn find_numbers_and_symbols_in_lines() {
+        let input = "467..114..\n...*......";
+        let result = scan_schematic(input.to_owned()).unwrap();
+        assert_eq!(
+            result,
+            (
+                vec![
+                    SchematicNumber::new_with_values(467, 0, Span { start: 0, end: 2 }),
+                    SchematicNumber::new_with_values(114, 0, Span { start: 5, end: 7 })
+                ],
+                vec![SchematicSymbol { line: 1, index: 3 },]
+            )
+        )
+    }
+
+    #[test]
+    fn find_part_number() {
+        let mut results: Vec<bool> = Vec::new();
+
+        /*
+         * * * * *
+         * 4 6 7 *
+         * * * * *
+         */
+
+        let input_schematic_number =
+            SchematicNumber::new_with_values(467, 1, Span { start: 1, end: 3 });
+        let input_schematic_symbols = vec![
+            SchematicSymbol { line: 0, index: 0 },
+            SchematicSymbol { line: 0, index: 1 },
+            SchematicSymbol { line: 0, index: 2 },
+            SchematicSymbol { line: 0, index: 3 },
+            SchematicSymbol { line: 0, index: 4 },
+            SchematicSymbol { line: 1, index: 0 },
+            SchematicSymbol { line: 1, index: 4 },
+            SchematicSymbol { line: 2, index: 0 },
+            SchematicSymbol { line: 2, index: 1 },
+            SchematicSymbol { line: 2, index: 2 },
+            SchematicSymbol { line: 2, index: 3 },
+            SchematicSymbol { line: 2, index: 4 },
+        ];
+
+        for symbol in input_schematic_symbols {
+            results.push(is_adjacent_to_symbol(&input_schematic_number, vec![symbol]))
+        }
+        assert_eq!(
+            results,
+            vec![true, true, true, true, true, true, true, true, true, true, true, true,]
+        )
+    }
+
+    #[test]
+    fn throw_out_schematic_number() {
+        let mut results: Vec<bool> = Vec::new();
+
+        /*
+        . . . . .
+        . 4 6 7 .
+        . . . . .
+        */
+
+        let input_schematic_number =
+            SchematicNumber::new_with_values(467, 1, Span { start: 1, end: 3 });
+        let input_schematic_symbols = vec![];
+
+        for symbol in input_schematic_symbols {
+            results.push(is_adjacent_to_symbol(&input_schematic_number, vec![symbol]))
+        }
+        assert_eq!(results, vec![])
+    }
+
+    #[test]
+    fn find_part_numbers_in_line() {
+        let input = "467..114*..\n...*......";
+        let (schematic_numbers, schematic_symbols) = scan_schematic(input.to_owned()).unwrap();
+        let result = determine_part_numbers(schematic_numbers, schematic_symbols).unwrap();
+        assert_eq!(
+            result,
+            vec![
+                SchematicNumber {
+                    value: 467,
+                    line: 0,
+                    span: Span { start: 0, end: 2 }
+                },
+                SchematicNumber {
+                    value: 114,
+                    line: 0,
+                    span: Span { start: 5, end: 7 }
+                }
+            ]
         )
     }
 }
