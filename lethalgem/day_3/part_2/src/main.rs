@@ -248,7 +248,7 @@ mod tests {
     fn find_symbol_in_line() {
         let input = "467...*...";
         let result = scan_for_symbols_in_line(input.to_owned(), 1);
-        assert_eq!(result, vec![SchematicSymbol { line: 1, index: 6 }])
+        assert_eq!(result, vec![SchematicSymbol { line: 1, index: 7 }])
     }
 
     #[test]
