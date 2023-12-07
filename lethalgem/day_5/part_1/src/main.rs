@@ -1,4 +1,5 @@
-use std::{collections::HashMap, fs, io, num::ParseIntError};
+use cond_utils::Between;
+use std::{collections::HashMap, fs, io, num::ParseIntError, ops::RangeInclusive};
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -18,7 +19,18 @@ pub enum Day5Error {
 #[derive(Debug, Clone)]
 struct Almanac {
     seed_list: Vec<u64>,
-    maps: Vec<HashMap<u64, u64>>,
+    maps: Vec<Map>,
+}
+
+#[derive(Debug, Clone)]
+struct Map {
+    bounds: Vec<MapBounds>,
+}
+
+#[derive(Debug, Clone)]
+struct MapBounds {
+    source_range: RangeInclusive<i64>,
+    destination_range: RangeInclusive<i64>,
 }
 
 fn main() {
@@ -73,11 +85,20 @@ fn traverse_almanac_for_location_list(almanac: Almanac) -> HashMap<u64, u64> {
 
 fn traverse_almanac_for_location(seed: u64, almanac: Almanac) -> u64 {
     let mut source = seed;
+
     for map in almanac.maps {
-        source = match map.get(&source) {
-            Some(destination) => *destination,
-            None => source,
-        };
+        for map_bounds in map.bounds {
+            if source.within(
+                *map_bounds.source_range.start() as u64,
+                *map_bounds.source_range.end() as u64,
+            ) {
+                let source_index_in_range = source - *map_bounds.source_range.start() as u64;
+                let destination =
+                    *map_bounds.destination_range.start() as u64 + source_index_in_range;
+                source = destination;
+                break;
+            }
+        }
     }
 
     source
@@ -102,8 +123,8 @@ fn parse_seeds_list(seed_line: String) -> Result<Vec<u64>, Day5Error> {
 
 fn create_map_list(
     all_maps_lines: std::iter::Skip<std::str::Lines<'_>>,
-) -> Result<Vec<HashMap<u64, u64>>, Day5Error> {
-    let mut map_list: Vec<HashMap<u64, u64>> = Vec::new();
+) -> Result<Vec<Map>, Day5Error> {
+    let mut map_list: Vec<Map> = Vec::new();
     let mut lines_to_map = String::new();
     for line in all_maps_lines {
         match line {
@@ -113,26 +134,30 @@ fn create_map_list(
             | "light-to-temperature map:"
             | "temperature-to-humidity map:"
             | "humidity-to-location map:" => {
-                map_list.push(create_map(lines_to_map.clone())?);
+                map_list.push(Map {
+                    bounds: create_map_bounds(lines_to_map.clone())?,
+                });
                 lines_to_map.clear()
             }
             "" | "seed-to-soil map:" => {}
             _ => lines_to_map.push_str(&format!("{}\n", line)),
         }
     }
-    map_list.push(create_map(lines_to_map.clone())?);
+    map_list.push(Map {
+        bounds: create_map_bounds(lines_to_map.clone())?,
+    });
 
     Ok(map_list)
 }
 
-fn create_map(map_input: String) -> Result<HashMap<u64, u64>, Day5Error> {
-    let mut map = HashMap::new();
+fn create_map_bounds(map_input: String) -> Result<Vec<MapBounds>, Day5Error> {
+    let mut map_bounds: Vec<MapBounds> = Vec::new();
     for line in map_input.lines() {
-        let mut destination_range_start: Option<u64> = None;
-        let mut source_range_start: Option<u64> = None;
-        let mut range_length: Option<u64> = None;
+        let mut destination_range_start: Option<i64> = None;
+        let mut source_range_start: Option<i64> = None;
+        let mut range_length: Option<i64> = None;
         for (i, num) in line.split_whitespace().enumerate() {
-            let parsed_num = num.parse::<u64>()?;
+            let parsed_num = num.parse::<i64>()?;
             match i {
                 0 => destination_range_start = Some(parsed_num),
                 1 => source_range_start = Some(parsed_num),
@@ -143,20 +168,27 @@ fn create_map(map_input: String) -> Result<HashMap<u64, u64>, Day5Error> {
         if let (Some(destination_range_start), Some(source_range_start), Some(range_length)) =
             (destination_range_start, source_range_start, range_length)
         {
-            for num in 0..range_length {
-                map.insert(source_range_start + num, destination_range_start + num);
-            }
+            map_bounds.push(MapBounds {
+                source_range: RangeInclusive::new(
+                    source_range_start,
+                    source_range_start + range_length - 1,
+                ),
+                destination_range: RangeInclusive::new(
+                    destination_range_start,
+                    destination_range_start + range_length - 1,
+                ),
+            });
         } else {
             return Err(Day5Error::MissingMapInfo);
         }
     }
-    Ok(map)
+    Ok(map_bounds)
 }
 
 #[cfg(test)]
 mod tests {
     use crate::{
-        create_almanac, create_map, create_map_list, find_lowest_location, load_input,
+        create_almanac, create_map_bounds, create_map_list, find_lowest_location, load_input,
         parse_seeds_list, traverse_almanac_for_location, traverse_almanac_for_location_list,
     };
 
@@ -175,25 +207,11 @@ mod tests {
     }
 
     #[test]
-    fn create_correct_map() {
-        let input = "50 98 2\n52 50 48";
-        let result = create_map(input.to_owned()).unwrap();
-        check(
-            &format!("{:?}", result.get(&79).unwrap()),
-            expect_test::expect!["81"],
-        );
-        check(
-            &format!("{:?}", result.get(&55).unwrap()),
-            expect_test::expect!["57"],
-        );
-        check(
-            &format!("{:?}", result.get(&14)),
-            expect_test::expect!["None"],
-        );
-        check(
-            &format!("{:?}", result.get(&13)),
-            expect_test::expect!["None"],
-        );
+    fn create_correct_map_bounds() {
+        let input = "50 98 2\n52 50 48\n";
+        let result = create_map_bounds(input.to_owned()).unwrap();
+        check(&format!("{:?}", result), expect_test::expect![
+            "[MapBounds { source_range: 98..=99, destination_range: 50..=51 }, MapBounds { source_range: 50..=97, destination_range: 52..=99 }]"]);
     }
 
     #[test]
