@@ -37,7 +37,7 @@ fn solution() {
     }
 
     println!("part 1 answer: {part_1_result}");
-    println!("part 1 answer: {part_2_result}");
+    println!("part 2 answer: {part_2_result}");
 }
 
 fn main() {
