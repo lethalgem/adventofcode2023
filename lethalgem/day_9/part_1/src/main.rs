@@ -22,8 +22,10 @@ fn run() -> Result<(), Day8Error> {
 
     let input_data = load_input("src/input.txt".to_string())?;
 
-    // println!("parsing hands, time elapsed: {:?}", start.elapsed());
-    // let mut hands = extract_hands(input_data.to_owned())?;
+    println!("calculating sum, time elapsed:{:?}", start.elapsed());
+    let sum = extrapolate_all_values(input_data.to_owned())?;
+
+    println!("sum: {}, time elapsed: {:?}", sum, start.elapsed());
 
     Ok(())
 }
@@ -34,7 +36,20 @@ fn load_input(file_path: String) -> Result<String, Day8Error> {
     Ok(data)
 }
 
-fn extrapolate_all_values(input: ) // TODO: extrapolate and sum
+fn extrapolate_all_values(input: String) -> Result<i32, Day8Error> {
+    let mut sum = 0;
+
+    for line in input.lines() {
+        let sequence: Vec<i32> = line
+            .split_whitespace()
+            .map(|num| num.parse::<i32>())
+            .collect::<Result<Vec<i32>, _>>()?;
+
+        sum += predict_next_reading(sequence)?;
+    }
+
+    Ok(sum)
+}
 
 fn predict_next_reading(sequence: Vec<i32>) -> Result<i32, Day8Error> {
     let mut found_zero_sequence = false;
@@ -80,7 +95,7 @@ fn find_next_sequence(sequence: &Vec<i32>) -> (Vec<i32>, bool) {
 
 #[cfg(test)]
 mod tests {
-    use crate::{find_next_sequence, predict_next_reading};
+    use crate::{extrapolate_all_values, find_next_sequence, load_input, predict_next_reading};
 
     fn check(actual: &str, expect: expect_test::Expect) {
         expect.assert_eq(actual);
@@ -116,5 +131,12 @@ mod tests {
         let input = [10, 13, 16, 21, 30, 45];
         let result = predict_next_reading(input.to_vec()).unwrap();
         check(&format!("{:?}", result), expect_test::expect!["68"]);
+    }
+
+    #[test]
+    fn find_correct_sum() {
+        let input = load_input("src/example_1.txt".to_owned()).unwrap();
+        let result = extrapolate_all_values(input).unwrap();
+        check(&format!("{:?}", result), expect_test::expect!["114"]);
     }
 }
