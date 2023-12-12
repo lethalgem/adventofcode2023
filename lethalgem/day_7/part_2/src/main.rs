@@ -14,6 +14,8 @@ pub enum Day7Error {
     FailedToSort,
     #[error("Failed to find hand with index")]
     FailedToFindHand,
+    #[error("Failed to find card with highest count in hand")]
+    FailedToFindHighestCardCount,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -24,15 +26,15 @@ struct Hand {
 }
 
 impl Hand {
-    fn new(cards: Vec<Card>, bid: i32) -> Hand {
-        Hand {
+    fn new(cards: Vec<Card>, bid: i32) -> Result<Hand, Day7Error> {
+        Ok(Hand {
             cards: cards.clone(),
-            type_: Self::find_type(cards),
+            type_: Self::find_type(cards)?,
             bid,
-        }
+        })
     }
 
-    fn find_type(cards: Vec<Card>) -> HandType {
+    fn find_type(cards: Vec<Card>) -> Result<HandType, Day7Error> {
         let mut card_count: HashMap<Card, i32> = HashMap::new();
         for card in cards {
             match card_count.clone().get(&card) {
@@ -45,56 +47,24 @@ impl Hand {
             };
         }
 
-        if Self::find_count_of_counts(5, &card_count) == 1 {
-            HandType::FiveOfAKind
-        } else if Self::find_count_of_counts(4, &card_count) == 1 {
-            let joker_count = Self::find_count_of_jokers(&card_count);
-            if joker_count > 0 {
-                HandType::FiveOfAKind
-            } else {
-                HandType::FourOfAKind
-            }
-        } else if Self::find_count_of_counts(2, &card_count) == 1
-            && Self::find_count_of_counts(3, &card_count) == 1
+        let card_count_with_jokers = Self::convert_jokers_for_count(&card_count)?;
+
+        if Self::find_count_of_counts(5, &card_count_with_jokers) == 1 {
+            Ok(HandType::FiveOfAKind)
+        } else if Self::find_count_of_counts(4, &card_count_with_jokers) == 1 {
+            Ok(HandType::FourOfAKind)
+        } else if Self::find_count_of_counts(2, &card_count_with_jokers) == 1
+            && Self::find_count_of_counts(3, &card_count_with_jokers) == 1
         {
-            let joker_count = Self::find_count_of_jokers(&card_count);
-            if joker_count == 2 || joker_count == 3 {
-                HandType::FiveOfAKind
-            } else {
-                HandType::FullHouse
-            }
-        } else if Self::find_count_of_counts(3, &card_count) == 1 {
-            let joker_count = Self::find_count_of_jokers(&card_count);
-            if joker_count == 2 {
-                HandType::FiveOfAKind
-            } else if joker_count == 1 || joker_count == 3 {
-                HandType::FourOfAKind
-            } else {
-                HandType::ThreeOfAKind
-            }
-        } else if Self::find_count_of_counts(2, &card_count) == 2 {
-            let joker_count = Self::find_count_of_jokers(&card_count);
-            if joker_count == 2 {
-                HandType::FourOfAKind
-            } else if joker_count == 1 {
-                HandType::FullHouse
-            } else {
-                HandType::TwoPair
-            }
-        } else if Self::find_count_of_counts(2, &card_count) == 1 {
-            let joker_count = Self::find_count_of_jokers(&card_count);
-            if joker_count == 1 || joker_count == 2 {
-                HandType::ThreeOfAKind
-            } else {
-                HandType::OnePair
-            }
+            Ok(HandType::FullHouse)
+        } else if Self::find_count_of_counts(3, &card_count_with_jokers) == 1 {
+            Ok(HandType::ThreeOfAKind)
+        } else if Self::find_count_of_counts(2, &card_count_with_jokers) == 2 {
+            Ok(HandType::TwoPair)
+        } else if Self::find_count_of_counts(2, &card_count_with_jokers) == 1 {
+            Ok(HandType::OnePair)
         } else {
-            let joker_count = Self::find_count_of_jokers(&card_count);
-            if joker_count == 1 {
-                HandType::OnePair
-            } else {
-                HandType::HighCard
-            }
+            Ok(HandType::HighCard)
         }
     }
 
@@ -105,8 +75,25 @@ impl Hand {
             .count() as i32
     }
 
-    fn find_count_of_jokers(card_count: &HashMap<Card, i32>) -> i32 {
-        *card_count.get(&Card::Jack).unwrap_or(&0)
+    fn convert_jokers_for_count(
+        card_count: &HashMap<Card, i32>,
+    ) -> Result<HashMap<Card, i32>, Day7Error> {
+        let joker_count = card_count.get(&Card::Jack).unwrap_or(&0);
+
+        let mut new_card_count = card_count.clone();
+        new_card_count.insert(Card::Jack, 0);
+
+        let highest_card_count = new_card_count
+            .iter()
+            .max_by_key(|entry| entry.1)
+            .ok_or_else(|| Day7Error::FailedToFindHighestCardCount)?;
+
+        new_card_count.insert(
+            highest_card_count.0.clone(),
+            highest_card_count.1 + joker_count,
+        );
+
+        Ok(new_card_count)
     }
 }
 
@@ -158,7 +145,7 @@ impl Card {
             Card::Eight => 7,
             Card::Nine => 8,
             Card::Ten => 9,
-            Card::Jack => 10,
+            Card::Jack => 0,
             Card::Queen => 11,
             Card::King => 12,
             Card::Ace => 13,
@@ -234,7 +221,7 @@ fn extract_hands(input: String) -> Result<Vec<Hand>, Day7Error> {
             for card in cards_c.chars() {
                 cards.push(Card::new(card)?)
             }
-            hands.push(Hand::new(cards, bid_c.parse::<i32>()?))
+            hands.push(Hand::new(cards, bid_c.parse::<i32>()?)?)
         }
     }
     Ok(hands)
@@ -290,7 +277,7 @@ mod tests {
             for c in input.chars() {
                 cards.push(Card::new(c).unwrap())
             }
-            Hand::find_type(cards)
+            Hand::find_type(cards).unwrap()
         }
 
         let result = construct_hand_type("AAAAA");
