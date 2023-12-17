@@ -2,7 +2,7 @@ use std::{fs, io, num::ParseIntError};
 use thiserror::Error;
 
 #[derive(Error, Debug)]
-pub enum Day9Error {
+pub enum Day15Error {
     #[error("File not loaded")]
     UnableToLoadFile(#[from] io::Error),
     #[error("Failed to parse int")]
@@ -38,7 +38,7 @@ fn main() {
     }
 }
 
-fn run() -> Result<(), Day9Error> {
+fn run() -> Result<(), Day15Error> {
     let start = std::time::Instant::now();
 
     let input_data = load_input("src/input.txt")?;
@@ -57,8 +57,8 @@ fn run() -> Result<(), Day9Error> {
     Ok(())
 }
 
-fn load_input(file_path: &str) -> Result<String, Day9Error> {
-    let data = fs::read_to_string(file_path).map_err(Day9Error::UnableToLoadFile)?;
+fn load_input(file_path: &str) -> Result<String, Day15Error> {
+    let data = fs::read_to_string(file_path).map_err(Day15Error::UnableToLoadFile)?;
     println!("Successfully loaded file");
     Ok(data)
 }
