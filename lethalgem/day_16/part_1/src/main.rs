@@ -89,6 +89,7 @@ fn track_beam(
     let mut beams_still_bouncing = true;
     while beams_still_bouncing {
         for (i, beam) in beams.clone().into_iter().enumerate() {
+            println!("beam location: {:?}", beam.current_location);
             let mut moved_beams = check_beam_location(&encounters, beam.clone(), wall_bounds);
 
             for moved_beam in moved_beams.clone() {
@@ -329,10 +330,11 @@ mod tests {
         check(&format!("{:?}", result), expect!["8"]);
 
         let input = r"..\..../..
-        ..........
-        ..\..../..
-        ..........";
+..........
+..\..../..
+..........";
         let encounters = locate_all_encounters(input);
+        println!("{:?}", encounters);
         let wall_bounds = find_wall_bounds(input).unwrap();
         let result = track_beam(encounters, wall_bounds);
         check(&format!("{:?}", result), expect!["14"]);
