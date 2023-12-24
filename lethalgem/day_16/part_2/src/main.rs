@@ -1,0 +1,624 @@
+use std::{collections::BTreeMap, fs, io};
+use thiserror::Error;
+
+#[derive(Error, Debug)]
+pub enum Day16Error {
+    #[error("File not loaded")]
+    UnableToLoadFile(#[from] io::Error),
+    #[error("Failed to find a bound for x values")]
+    FailedToFindXBound,
+}
+
+#[derive(Debug, Clone)]
+pub enum Direction {
+    Up,
+    Right,
+    Left,
+    Down,
+}
+
+#[derive(Debug)]
+pub enum EncounterType {
+    LeftTiltMirror,     // \
+    RightTiltMirror,    // /
+    HorizontalSplitter, // -
+    VerticalSplitter,   // |
+}
+
+#[derive(Debug, Clone)]
+struct Beam {
+    id: i32,
+    current_location: (usize, usize), // x, y
+    direction: Direction,
+    has_stopped_bouncing: bool,
+}
+
+impl Beam {
+    fn new(id: i32, current_location: (usize, usize), direction: Direction) -> Beam {
+        Beam {
+            id,
+            current_location,
+            direction,
+            has_stopped_bouncing: false,
+        }
+    }
+
+    fn update_current_location(&mut self, location: (usize, usize)) {
+        self.current_location = location;
+    }
+
+    fn update_direction(&mut self, direction: Direction) {
+        self.direction = direction;
+    }
+
+    fn stop_bouncing(&mut self) {
+        self.has_stopped_bouncing = true;
+    }
+}
+
+fn main() {
+    if let Err(err) = run() {
+        eprintln!("Error: {}", err)
+    }
+}
+
+fn run() -> Result<(), Day16Error> {
+    let start = std::time::Instant::now();
+
+    let input_data = load_input("src/example.txt")?;
+
+    println!(
+        "finding encounter locations, time elapsed:{:?}",
+        start.elapsed()
+    );
+    let encounters = locate_all_encounters(&input_data);
+
+    println!("finding wall bounds, time elapsed:{:?}", start.elapsed());
+    let wall_bounds = find_wall_bounds(&input_data)?;
+
+    println!("wall_bounds: {:?}", wall_bounds);
+
+    println!(
+        "finding distance traveled, time elapsed:{:?}",
+        start.elapsed()
+    );
+    let distance_traveled = track_beam(
+        &encounters,
+        wall_bounds,
+        Beam::new(0, (0, 0), Direction::Right),
+    );
+
+    println!(
+        "distance traveled: {}, time elapsed: {:?}",
+        distance_traveled,
+        start.elapsed()
+    );
+
+    // 63.749424667s
+
+    Ok(())
+}
+
+fn load_input(file_path: &str) -> Result<String, Day16Error> {
+    let data = fs::read_to_string(file_path).map_err(Day16Error::UnableToLoadFile)?;
+    println!("Successfully loaded file");
+    Ok(data)
+}
+
+fn track_all_possible_beams(
+    encounters: &BTreeMap<(usize, usize), EncounterType>,
+    wall_bounds: (usize, usize),
+) -> usize {
+    let mut most_energized_tiles = 0;
+    for x in 0..=wall_bounds.0 {
+        for y in 0..=wall_bounds.1 {
+            let mut starting_beams: Vec<Beam> = Vec::new();
+
+            match (x, y) {
+                (0, 0) => {
+                    starting_beams = vec![
+                        Beam::new(0, (x, y), Direction::Right),
+                        Beam::new(0, (x, y), Direction::Down),
+                    ];
+                }
+                (0, y) if y == wall_bounds.1 => {
+                    starting_beams = vec![
+                        Beam::new(0, (x, y), Direction::Up),
+                        Beam::new(0, (x, y), Direction::Right),
+                    ];
+                }
+                (x, 0) if x == wall_bounds.0 => {
+                    starting_beams = vec![
+                        Beam::new(0, (x, y), Direction::Down),
+                        Beam::new(0, (x, y), Direction::Left),
+                    ];
+                }
+                (x, y) if x == wall_bounds.0 && y == wall_bounds.1 => {
+                    starting_beams = vec![
+                        Beam::new(0, (x, y), Direction::Up),
+                        Beam::new(0, (x, y), Direction::Left),
+                    ];
+                }
+                (x, _) if x == wall_bounds.0 => {
+                    starting_beams = vec![Beam::new(0, (x, y), Direction::Left)];
+                }
+                (_, y) if y == wall_bounds.1 => {
+                    starting_beams = vec![Beam::new(0, (x, y), Direction::Up)];
+                }
+                (0, _) => {
+                    starting_beams = vec![Beam::new(0, (x, y), Direction::Right)];
+                }
+                (_, 0) => {
+                    starting_beams = vec![Beam::new(0, (x, y), Direction::Down)];
+                }
+                (_, _) => {}
+            }
+
+            for beam in starting_beams {
+                let energized_tiles = track_beam(encounters, wall_bounds, beam.clone());
+                println!(
+                    "energized_tiles: {}, ({}, {}), starting_beam: {:?}",
+                    energized_tiles, x, y, beam
+                );
+                if energized_tiles > most_energized_tiles {
+                    most_energized_tiles = energized_tiles;
+                }
+            }
+        }
+    }
+
+    most_energized_tiles
+}
+
+fn track_beam(
+    encounters: &BTreeMap<(usize, usize), EncounterType>,
+    wall_bounds: (usize, usize),
+    starting_beam: Beam,
+) -> usize {
+    let mut path_traveled_by_all_beams: Vec<(usize, usize)> = vec![(0, 0)];
+    let mut paths_visited_in_a_row_before_cutoff = 0;
+    let mut previous_path_length = 0;
+    let mut beams = vec![starting_beam];
+
+    let mut beams_still_bouncing = true;
+    while beams_still_bouncing {
+        let mut all_moved_beams: Vec<Beam> = Vec::new();
+        for beam in beams {
+            let moved_beams = check_beam_location(encounters, beam.clone(), wall_bounds);
+            for moved_beam in moved_beams.clone() {
+                if !path_traveled_by_all_beams.contains(&moved_beam.current_location) {
+                    path_traveled_by_all_beams.push(moved_beam.current_location);
+                    paths_visited_in_a_row_before_cutoff = 0;
+                    previous_path_length = path_traveled_by_all_beams.len();
+                }
+            }
+
+            let mut still_bouncing_beams: Vec<Beam> = moved_beams
+                .into_iter()
+                .filter(|beam| !beam.has_stopped_bouncing)
+                .collect();
+
+            all_moved_beams.append(&mut still_bouncing_beams);
+        }
+
+        if previous_path_length == path_traveled_by_all_beams.len() {
+            paths_visited_in_a_row_before_cutoff += 1;
+            if paths_visited_in_a_row_before_cutoff > 10 {
+                beams_still_bouncing = false;
+            }
+        }
+
+        beams = all_moved_beams;
+        if beams.is_empty() {
+            beams_still_bouncing = false;
+        }
+    }
+
+    path_traveled_by_all_beams.len()
+}
+
+fn check_beam_location(
+    encounters: &BTreeMap<(usize, usize), EncounterType>,
+    mut beam: Beam,
+    wall_bounds: (usize, usize),
+) -> Vec<Beam> {
+    let mut split_beam: Option<Beam> = None;
+
+    let current_location_encounter = encounters.get(&beam.current_location);
+    match current_location_encounter {
+        Some(EncounterType::RightTiltMirror) => match beam.direction {
+            Direction::Up => {
+                beam.update_direction(Direction::Right);
+                move_beam(&mut beam, wall_bounds);
+            }
+            Direction::Right => {
+                beam.update_direction(Direction::Up);
+                move_beam(&mut beam, wall_bounds);
+            }
+            Direction::Left => {
+                beam.update_direction(Direction::Down);
+                move_beam(&mut beam, wall_bounds);
+            }
+            Direction::Down => {
+                beam.update_direction(Direction::Left);
+                move_beam(&mut beam, wall_bounds);
+            }
+        },
+        Some(EncounterType::LeftTiltMirror) => match beam.direction {
+            Direction::Up => {
+                beam.update_direction(Direction::Left);
+                move_beam(&mut beam, wall_bounds);
+            }
+            Direction::Right => {
+                beam.update_direction(Direction::Down);
+                move_beam(&mut beam, wall_bounds);
+            }
+            Direction::Left => {
+                beam.update_direction(Direction::Up);
+                move_beam(&mut beam, wall_bounds);
+            }
+            Direction::Down => {
+                beam.update_direction(Direction::Right);
+                move_beam(&mut beam, wall_bounds);
+            }
+        },
+        Some(EncounterType::VerticalSplitter) => match beam.direction {
+            Direction::Up | Direction::Down => {
+                move_beam(&mut beam, wall_bounds);
+            }
+            Direction::Right | Direction::Left => {
+                beam.update_direction(Direction::Up);
+                let mut pre_moved_split_beam =
+                    Beam::new(beam.id + 1, beam.current_location, Direction::Down);
+
+                move_beam(&mut beam, wall_bounds);
+                move_beam(&mut pre_moved_split_beam, wall_bounds);
+
+                split_beam = Some(pre_moved_split_beam);
+            }
+        },
+        Some(EncounterType::HorizontalSplitter) => match beam.direction {
+            Direction::Up | Direction::Down => {
+                beam.update_direction(Direction::Left);
+                let mut pre_moved_split_beam =
+                    Beam::new(beam.id + 1, beam.current_location, Direction::Right);
+
+                move_beam(&mut beam, wall_bounds);
+                move_beam(&mut pre_moved_split_beam, wall_bounds);
+
+                split_beam = Some(pre_moved_split_beam);
+            }
+            Direction::Right | Direction::Left => {
+                move_beam(&mut beam, wall_bounds);
+            }
+        },
+        _ => move_beam(&mut beam, wall_bounds),
+    }
+
+    if let Some(split_beam) = split_beam {
+        vec![beam, split_beam]
+    } else {
+        vec![beam]
+    }
+}
+
+fn move_beam(beam: &mut Beam, wall_bounds: (usize, usize)) {
+    fn update_beam_to_new_location(
+        new_location: (i32, i32),
+        wall_bounds: (usize, usize),
+        beam: &mut Beam,
+    ) {
+        if new_location.0 > wall_bounds.0 as i32
+            || new_location.0 < 0
+            || new_location.1 > wall_bounds.1 as i32
+            || new_location.1 < 0
+        {
+            beam.stop_bouncing()
+        } else {
+            beam.update_current_location((new_location.0 as usize, new_location.1 as usize))
+        }
+    }
+
+    match beam.direction {
+        Direction::Up => {
+            let new_location = (
+                beam.current_location.0 as i32,
+                beam.current_location.1 as i32 - 1,
+            );
+            update_beam_to_new_location(new_location, wall_bounds, beam);
+        }
+        Direction::Right => {
+            let new_location = (
+                beam.current_location.0 as i32 + 1,
+                beam.current_location.1 as i32,
+            );
+            update_beam_to_new_location(new_location, wall_bounds, beam);
+        }
+        Direction::Left => {
+            let new_location = (
+                beam.current_location.0 as i32 - 1,
+                beam.current_location.1 as i32,
+            );
+            update_beam_to_new_location(new_location, wall_bounds, beam);
+        }
+        Direction::Down => {
+            let new_location = (
+                beam.current_location.0 as i32,
+                beam.current_location.1 as i32 + 1,
+            );
+            update_beam_to_new_location(new_location, wall_bounds, beam);
+        }
+    }
+}
+
+fn find_wall_bounds(input: &str) -> Result<(usize, usize), Day16Error> {
+    let y = input.lines().count() - 1;
+    let x = input
+        .lines()
+        .next()
+        .ok_or_else(|| Day16Error::FailedToFindXBound)?
+        .chars()
+        .count()
+        - 1;
+
+    Ok((x, y))
+}
+
+fn locate_all_encounters(input: &str) -> BTreeMap<(usize, usize), EncounterType> {
+    let mut encounters: BTreeMap<(usize, usize), EncounterType> = BTreeMap::new();
+
+    for (y, line) in input.lines().enumerate() {
+        for (x, c) in line.chars().enumerate() {
+            match c {
+                '\\' => {
+                    encounters.insert((x, y), EncounterType::LeftTiltMirror);
+                }
+                '/' => {
+                    encounters.insert((x, y), EncounterType::RightTiltMirror);
+                }
+                '|' => {
+                    encounters.insert((x, y), EncounterType::VerticalSplitter);
+                }
+                '-' => {
+                    encounters.insert((x, y), EncounterType::HorizontalSplitter);
+                }
+                _ => {}
+            }
+        }
+    }
+
+    encounters
+}
+
+#[cfg(test)]
+mod tests {
+    use expect_test::expect;
+
+    use crate::{
+        find_wall_bounds, load_input, locate_all_encounters, track_all_possible_beams, track_beam,
+        Beam, Direction,
+    };
+
+    fn check(actual: &str, expect: expect_test::Expect) {
+        expect.assert_eq(actual);
+    }
+
+    #[test]
+    fn test_encounter_locations() {
+        let input = r".|...\....";
+        let result = locate_all_encounters(input);
+        check(
+            &format!("{:?}", result),
+            expect!["{(1, 0): VerticalSplitter, (5, 0): LeftTiltMirror}"],
+        );
+
+        let input = r".//...\....";
+        let result = locate_all_encounters(input);
+        check(
+            &format!("{:?}", result),
+            expect!["{(1, 0): RightTiltMirror, (2, 0): RightTiltMirror, (6, 0): LeftTiltMirror}"],
+        );
+
+        let input = r"..../.\\..
+        .-.-/..|..
+        .|....-|.\
+        ..//.|....";
+        let result = locate_all_encounters(input);
+        check(&format!("{:?}", result), expect!["{(4, 0): RightTiltMirror, (6, 0): LeftTiltMirror, (7, 0): LeftTiltMirror, (9, 1): HorizontalSplitter, (9, 2): VerticalSplitter, (10, 3): RightTiltMirror, (11, 1): HorizontalSplitter, (11, 3): RightTiltMirror, (12, 1): RightTiltMirror, (13, 3): VerticalSplitter, (14, 2): HorizontalSplitter, (15, 1): VerticalSplitter, (15, 2): VerticalSplitter, (17, 2): LeftTiltMirror}"]);
+
+        let input = r".|...\....
+        |.-.\.....";
+        let result = locate_all_encounters(input);
+        check(&format!("{:?}", result), expect!["{(1, 0): VerticalSplitter, (5, 0): LeftTiltMirror, (8, 1): VerticalSplitter, (10, 1): HorizontalSplitter, (12, 1): LeftTiltMirror}"]);
+
+        let input = load_input("src/example.txt").unwrap();
+        let result = locate_all_encounters(&input);
+        check(&format!("{:?}", result), expect!["{(0, 1): VerticalSplitter, (1, 0): VerticalSplitter, (1, 7): HorizontalSplitter, (1, 8): VerticalSplitter, (2, 1): HorizontalSplitter, (2, 9): RightTiltMirror, (3, 7): HorizontalSplitter, (3, 9): RightTiltMirror, (4, 1): LeftTiltMirror, (4, 6): RightTiltMirror, (4, 7): RightTiltMirror, (5, 0): LeftTiltMirror, (5, 2): VerticalSplitter, (5, 9): VerticalSplitter, (6, 2): HorizontalSplitter, (6, 6): LeftTiltMirror, (6, 8): HorizontalSplitter, (7, 6): LeftTiltMirror, (7, 7): VerticalSplitter, (7, 8): VerticalSplitter, (8, 3): VerticalSplitter, (9, 5): LeftTiltMirror, (9, 8): LeftTiltMirror}"]);
+    }
+
+    #[test]
+    fn test_wall_bounds() {
+        let input = r"..........";
+        let result = find_wall_bounds(input).unwrap();
+        check(&format!("{:?}", result), expect!["(9, 0)"]);
+
+        let input = r"..........
+        ..........
+        ..........
+        ..........";
+        let result = find_wall_bounds(input).unwrap();
+        check(&format!("{:?}", result), expect!["(9, 3)"]);
+
+        let input = load_input("src/example.txt").unwrap();
+        let result = find_wall_bounds(&input).unwrap();
+        check(&format!("{:?}", result), expect!["(9, 9)"]);
+    }
+
+    #[test]
+    fn test_beam_tracking() {
+        let input = r"..........";
+        let encounters = locate_all_encounters(input);
+        let wall_bounds = find_wall_bounds(input).unwrap();
+        let result = track_beam(
+            &encounters,
+            wall_bounds,
+            Beam::new(0, (0, 0), Direction::Right),
+        );
+        check(&format!("{:?}", result), expect!["10"]);
+
+        let input = r"..../.....";
+        let encounters = locate_all_encounters(input);
+        let wall_bounds = find_wall_bounds(input).unwrap();
+        let result = track_beam(
+            &encounters,
+            wall_bounds,
+            Beam::new(0, (0, 0), Direction::Right),
+        );
+        check(&format!("{:?}", result), expect!["5"]);
+
+        let input = r".......\..";
+        let encounters = locate_all_encounters(input);
+        let wall_bounds = find_wall_bounds(input).unwrap();
+        let result = track_beam(
+            &encounters,
+            wall_bounds,
+            Beam::new(0, (0, 0), Direction::Right),
+        );
+        check(&format!("{:?}", result), expect!["8"]);
+
+        let input = r".\.......\
+...../.\..
+.\\.////..
+..\./.\../";
+        let encounters = locate_all_encounters(input);
+        let wall_bounds = find_wall_bounds(input).unwrap();
+        let result = track_beam(
+            &encounters,
+            wall_bounds,
+            Beam::new(0, (0, 0), Direction::Right),
+        );
+        check(&format!("{:?}", result), expect!["29"]);
+
+        let input = r".|........
+.|........
+.-..-..|..
+..........";
+        let encounters = locate_all_encounters(input);
+        let wall_bounds = find_wall_bounds(input).unwrap();
+        let result = track_beam(
+            &encounters,
+            wall_bounds,
+            Beam::new(0, (0, 0), Direction::Right),
+        );
+        check(&format!("{:?}", result), expect!["14"]);
+
+        let input = r".|........
+...|...\..
+.\..-../..
+..........";
+        let encounters = locate_all_encounters(input);
+        let wall_bounds = find_wall_bounds(input).unwrap();
+        let result = track_beam(
+            &encounters,
+            wall_bounds,
+            Beam::new(0, (0, 0), Direction::Right),
+        );
+        check(&format!("{:?}", result), expect!["17"]);
+
+        let input = r".\........
+..........
+.\..|.....
+..........
+..........";
+        let encounters = locate_all_encounters(input);
+        let wall_bounds = find_wall_bounds(input).unwrap();
+        let result = track_beam(
+            &encounters,
+            wall_bounds,
+            Beam::new(0, (0, 0), Direction::Right),
+        );
+        check(&format!("{:?}", result), expect!["11"]);
+
+        let input = r"....\.....
+..........
+....-.....
+..........
+..........";
+        let encounters = locate_all_encounters(input);
+        let wall_bounds = find_wall_bounds(input).unwrap();
+        let result = track_beam(
+            &encounters,
+            wall_bounds,
+            Beam::new(0, (0, 0), Direction::Right),
+        );
+        check(&format!("{:?}", result), expect!["16"]);
+
+        let input = r".\........
+....-|....
+.\..|.....
+..........";
+        let encounters = locate_all_encounters(input);
+        let wall_bounds = find_wall_bounds(input).unwrap();
+        let result = track_beam(
+            &encounters,
+            wall_bounds,
+            Beam::new(0, (0, 0), Direction::Right),
+        );
+        check(&format!("{:?}", result), expect!["16"]);
+
+        let input = load_input("src/example.txt").unwrap();
+        let encounters = locate_all_encounters(&input);
+        let wall_bounds = find_wall_bounds(&input).unwrap();
+        let result = track_beam(
+            &encounters,
+            wall_bounds,
+            Beam::new(0, (0, 0), Direction::Right),
+        );
+        check(&format!("{:?}", result), expect!["46"]);
+    }
+
+    #[test]
+    fn test_all_possible_beams() {
+        let input = r"..........
+..........
+....-.....
+..........";
+        let encounters = locate_all_encounters(input);
+        let wall_bounds = find_wall_bounds(input).unwrap();
+        let result = track_all_possible_beams(&encounters, wall_bounds);
+        check(&format!("{:?}", result), expect!["12"]);
+
+        let input = r"....-.....
+..........
+..........
+..........";
+        let encounters = locate_all_encounters(input);
+        let wall_bounds = find_wall_bounds(input).unwrap();
+        let result = track_all_possible_beams(&encounters, wall_bounds);
+        check(&format!("{:?}", result), expect!["12"]);
+
+        let input = r"..........
+.......|..
+..........
+..........";
+        let encounters = locate_all_encounters(input);
+        let wall_bounds = find_wall_bounds(input).unwrap();
+        let result = track_all_possible_beams(&encounters, wall_bounds);
+        check(&format!("{:?}", result), expect!["11"]);
+
+        let input = r"..........
+..........
+..|.......
+..........";
+        let encounters = locate_all_encounters(input);
+        let wall_bounds = find_wall_bounds(input).unwrap();
+        let result = track_all_possible_beams(&encounters, wall_bounds);
+        check(&format!("{:?}", result), expect!["11"]);
+
+        let input = load_input("src/example.txt").unwrap();
+        let encounters = locate_all_encounters(&input);
+        let wall_bounds = find_wall_bounds(&input).unwrap();
+        let result = track_all_possible_beams(&encounters, wall_bounds);
+        check(&format!("{:?}", result), expect!["51"]);
+    }
+}
