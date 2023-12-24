@@ -65,7 +65,7 @@ fn main() {
 fn run() -> Result<(), Day16Error> {
     let start = std::time::Instant::now();
 
-    let input_data = load_input("src/input.txt")?;
+    let input_data = load_input("src/example.txt")?;
 
     println!(
         "finding encounter locations, time elapsed:{:?}",
@@ -76,17 +76,25 @@ fn run() -> Result<(), Day16Error> {
     println!("finding wall bounds, time elapsed:{:?}", start.elapsed());
     let wall_bounds = find_wall_bounds(&input_data)?;
 
+    println!("wall_bounds: {:?}", wall_bounds);
+
     println!(
         "finding distance traveled, time elapsed:{:?}",
         start.elapsed()
     );
-    let distance_traveled = track_beam(encounters, wall_bounds);
+    let distance_traveled = track_beam(
+        &encounters,
+        wall_bounds,
+        Beam::new(0, (0, 0), Direction::Right),
+    );
 
     println!(
         "distance traveled: {}, time elapsed: {:?}",
         distance_traveled,
         start.elapsed()
     );
+
+    // 63.749424667s
 
     Ok(())
 }
@@ -97,27 +105,91 @@ fn load_input(file_path: &str) -> Result<String, Day16Error> {
     Ok(data)
 }
 
-fn track_beam(
-    encounters: BTreeMap<(usize, usize), EncounterType>,
+fn track_all_possible_beams(
+    encounters: &BTreeMap<(usize, usize), EncounterType>,
     wall_bounds: (usize, usize),
 ) -> usize {
+    let mut most_energized_tiles = 0;
+    for x in 0..=wall_bounds.0 {
+        for y in 0..=wall_bounds.1 {
+            let mut starting_beams: Vec<Beam> = Vec::new();
+
+            match (x, y) {
+                (0, 0) => {
+                    starting_beams = vec![
+                        Beam::new(0, (x, y), Direction::Right),
+                        Beam::new(0, (x, y), Direction::Down),
+                    ];
+                }
+                (0, y) if y == wall_bounds.1 => {
+                    starting_beams = vec![
+                        Beam::new(0, (x, y), Direction::Up),
+                        Beam::new(0, (x, y), Direction::Right),
+                    ];
+                }
+                (x, 0) if x == wall_bounds.0 => {
+                    starting_beams = vec![
+                        Beam::new(0, (x, y), Direction::Down),
+                        Beam::new(0, (x, y), Direction::Left),
+                    ];
+                }
+                (x, y) if x == wall_bounds.0 && y == wall_bounds.1 => {
+                    starting_beams = vec![
+                        Beam::new(0, (x, y), Direction::Up),
+                        Beam::new(0, (x, y), Direction::Left),
+                    ];
+                }
+                (x, _) if x == wall_bounds.0 => {
+                    starting_beams = vec![Beam::new(0, (x, y), Direction::Left)];
+                }
+                (_, y) if y == wall_bounds.1 => {
+                    starting_beams = vec![Beam::new(0, (x, y), Direction::Up)];
+                }
+                (0, _) => {
+                    starting_beams = vec![Beam::new(0, (x, y), Direction::Right)];
+                }
+                (_, 0) => {
+                    starting_beams = vec![Beam::new(0, (x, y), Direction::Down)];
+                }
+                (_, _) => {}
+            }
+
+            for beam in starting_beams {
+                let energized_tiles = track_beam(encounters, wall_bounds, beam.clone());
+                println!(
+                    "energized_tiles: {}, ({}, {}), starting_beam: {:?}",
+                    energized_tiles, x, y, beam
+                );
+                if energized_tiles > most_energized_tiles {
+                    most_energized_tiles = energized_tiles;
+                }
+            }
+        }
+    }
+
+    most_energized_tiles
+}
+
+fn track_beam(
+    encounters: &BTreeMap<(usize, usize), EncounterType>,
+    wall_bounds: (usize, usize),
+    starting_beam: Beam,
+) -> usize {
     let mut path_traveled_by_all_beams: Vec<(usize, usize)> = vec![(0, 0)];
-    let mut path_visited_before_cutoff = 10000000;
-    let mut beams = vec![Beam::new(0, (0, 0), Direction::Right)];
+    let mut paths_visited_in_a_row_before_cutoff = 0;
+    let mut previous_path_length = 0;
+    let mut beams = vec![starting_beam];
 
     let mut beams_still_bouncing = true;
     while beams_still_bouncing {
         let mut all_moved_beams: Vec<Beam> = Vec::new();
         for beam in beams {
-            let moved_beams = check_beam_location(&encounters, beam.clone(), wall_bounds);
+            let moved_beams = check_beam_location(encounters, beam.clone(), wall_bounds);
             for moved_beam in moved_beams.clone() {
                 if !path_traveled_by_all_beams.contains(&moved_beam.current_location) {
                     path_traveled_by_all_beams.push(moved_beam.current_location);
-                } else {
-                    path_visited_before_cutoff -= 1;
-                    if path_visited_before_cutoff <= 0 {
-                        beams_still_bouncing = false;
-                    }
+                    paths_visited_in_a_row_before_cutoff = 0;
+                    previous_path_length = path_traveled_by_all_beams.len();
                 }
             }
 
@@ -128,6 +200,14 @@ fn track_beam(
 
             all_moved_beams.append(&mut still_bouncing_beams);
         }
+
+        if previous_path_length == path_traveled_by_all_beams.len() {
+            paths_visited_in_a_row_before_cutoff += 1;
+            if paths_visited_in_a_row_before_cutoff > 10 {
+                beams_still_bouncing = false;
+            }
+        }
+
         beams = all_moved_beams;
         if beams.is_empty() {
             beams_still_bouncing = false;
@@ -314,7 +394,10 @@ fn locate_all_encounters(input: &str) -> BTreeMap<(usize, usize), EncounterType>
 mod tests {
     use expect_test::expect;
 
-    use crate::{find_wall_bounds, load_input, locate_all_encounters, track_beam};
+    use crate::{
+        find_wall_bounds, load_input, locate_all_encounters, track_all_possible_beams, track_beam,
+        Beam, Direction,
+    };
 
     fn check(actual: &str, expect: expect_test::Expect) {
         expect.assert_eq(actual);
@@ -376,19 +459,31 @@ mod tests {
         let input = r"..........";
         let encounters = locate_all_encounters(input);
         let wall_bounds = find_wall_bounds(input).unwrap();
-        let result = track_beam(encounters, wall_bounds);
+        let result = track_beam(
+            &encounters,
+            wall_bounds,
+            Beam::new(0, (0, 0), Direction::Right),
+        );
         check(&format!("{:?}", result), expect!["10"]);
 
         let input = r"..../.....";
         let encounters = locate_all_encounters(input);
         let wall_bounds = find_wall_bounds(input).unwrap();
-        let result = track_beam(encounters, wall_bounds);
+        let result = track_beam(
+            &encounters,
+            wall_bounds,
+            Beam::new(0, (0, 0), Direction::Right),
+        );
         check(&format!("{:?}", result), expect!["5"]);
 
         let input = r".......\..";
         let encounters = locate_all_encounters(input);
         let wall_bounds = find_wall_bounds(input).unwrap();
-        let result = track_beam(encounters, wall_bounds);
+        let result = track_beam(
+            &encounters,
+            wall_bounds,
+            Beam::new(0, (0, 0), Direction::Right),
+        );
         check(&format!("{:?}", result), expect!["8"]);
 
         let input = r".\.......\
@@ -397,7 +492,11 @@ mod tests {
 ..\./.\../";
         let encounters = locate_all_encounters(input);
         let wall_bounds = find_wall_bounds(input).unwrap();
-        let result = track_beam(encounters, wall_bounds);
+        let result = track_beam(
+            &encounters,
+            wall_bounds,
+            Beam::new(0, (0, 0), Direction::Right),
+        );
         check(&format!("{:?}", result), expect!["29"]);
 
         let input = r".|........
@@ -406,7 +505,11 @@ mod tests {
 ..........";
         let encounters = locate_all_encounters(input);
         let wall_bounds = find_wall_bounds(input).unwrap();
-        let result = track_beam(encounters, wall_bounds);
+        let result = track_beam(
+            &encounters,
+            wall_bounds,
+            Beam::new(0, (0, 0), Direction::Right),
+        );
         check(&format!("{:?}", result), expect!["14"]);
 
         let input = r".|........
@@ -415,7 +518,11 @@ mod tests {
 ..........";
         let encounters = locate_all_encounters(input);
         let wall_bounds = find_wall_bounds(input).unwrap();
-        let result = track_beam(encounters, wall_bounds);
+        let result = track_beam(
+            &encounters,
+            wall_bounds,
+            Beam::new(0, (0, 0), Direction::Right),
+        );
         check(&format!("{:?}", result), expect!["17"]);
 
         let input = r".\........
@@ -425,7 +532,11 @@ mod tests {
 ..........";
         let encounters = locate_all_encounters(input);
         let wall_bounds = find_wall_bounds(input).unwrap();
-        let result = track_beam(encounters, wall_bounds);
+        let result = track_beam(
+            &encounters,
+            wall_bounds,
+            Beam::new(0, (0, 0), Direction::Right),
+        );
         check(&format!("{:?}", result), expect!["11"]);
 
         let input = r"....\.....
@@ -435,7 +546,11 @@ mod tests {
 ..........";
         let encounters = locate_all_encounters(input);
         let wall_bounds = find_wall_bounds(input).unwrap();
-        let result = track_beam(encounters, wall_bounds);
+        let result = track_beam(
+            &encounters,
+            wall_bounds,
+            Beam::new(0, (0, 0), Direction::Right),
+        );
         check(&format!("{:?}", result), expect!["16"]);
 
         let input = r".\........
@@ -444,13 +559,66 @@ mod tests {
 ..........";
         let encounters = locate_all_encounters(input);
         let wall_bounds = find_wall_bounds(input).unwrap();
-        let result = track_beam(encounters, wall_bounds);
+        let result = track_beam(
+            &encounters,
+            wall_bounds,
+            Beam::new(0, (0, 0), Direction::Right),
+        );
         check(&format!("{:?}", result), expect!["16"]);
 
         let input = load_input("src/example.txt").unwrap();
         let encounters = locate_all_encounters(&input);
         let wall_bounds = find_wall_bounds(&input).unwrap();
-        let result = track_beam(encounters, wall_bounds);
+        let result = track_beam(
+            &encounters,
+            wall_bounds,
+            Beam::new(0, (0, 0), Direction::Right),
+        );
         check(&format!("{:?}", result), expect!["46"]);
+    }
+
+    #[test]
+    fn test_all_possible_beams() {
+        let input = r"..........
+..........
+....-.....
+..........";
+        let encounters = locate_all_encounters(input);
+        let wall_bounds = find_wall_bounds(input).unwrap();
+        let result = track_all_possible_beams(&encounters, wall_bounds);
+        check(&format!("{:?}", result), expect!["12"]);
+
+        let input = r"....-.....
+..........
+..........
+..........";
+        let encounters = locate_all_encounters(input);
+        let wall_bounds = find_wall_bounds(input).unwrap();
+        let result = track_all_possible_beams(&encounters, wall_bounds);
+        check(&format!("{:?}", result), expect!["12"]);
+
+        let input = r"..........
+.......|..
+..........
+..........";
+        let encounters = locate_all_encounters(input);
+        let wall_bounds = find_wall_bounds(input).unwrap();
+        let result = track_all_possible_beams(&encounters, wall_bounds);
+        check(&format!("{:?}", result), expect!["11"]);
+
+        let input = r"..........
+..........
+..|.......
+..........";
+        let encounters = locate_all_encounters(input);
+        let wall_bounds = find_wall_bounds(input).unwrap();
+        let result = track_all_possible_beams(&encounters, wall_bounds);
+        check(&format!("{:?}", result), expect!["11"]);
+
+        let input = load_input("src/example.txt").unwrap();
+        let encounters = locate_all_encounters(&input);
+        let wall_bounds = find_wall_bounds(&input).unwrap();
+        let result = track_all_possible_beams(&encounters, wall_bounds);
+        check(&format!("{:?}", result), expect!["51"]);
     }
 }
